@@ -1688,41 +1688,42 @@ document.getElementById('signupBtn').addEventListener('click', function() {
         
         // Login function
         async function login() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            if (!username || !password) {
-                showNotification('Please enter both username and password', 'error');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${SERVER_URL}/api/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username, password })
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Login failed');
-                }
-                
-                const data = await response.json();
-                currentUser = data.user;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                showMainApp();
-                loadTweets();
-                loadFollowing();
-                loadUserProfile();
-                showNotification(`Welcome back, ${currentUser.name}!`);
-            } catch (error) {
-                console.error('Login error:', error);
-                showNotification(error.message || 'Network error. Please try again.', 'error');
-            }
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    if (!username || !password) {
+        showNotification('Please enter both username and password', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${SERVER_URL}/api/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Login failed');
         }
+
+        const data = await response.json();
+        currentUser = data.user;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        showMainApp();
+        loadTweets();
+        loadFollowing();
+        loadUserProfile();
+        showNotification(`Welcome back, ${currentUser.name}!`);
+    } catch (error) {
+        console.error('Login error:', error);
+        showNotification(error.message || 'Network error. Please try again.', 'error');
+    }
+}
+
         
         // Signup function
        // Replace this:
