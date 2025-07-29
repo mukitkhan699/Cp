@@ -146,6 +146,37 @@
             background-color: var(--primary-dark);
         }
 
+        .signup-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.dark-mode .signup-title {
+    color: var(--dark-text);
+}
+
+.login-link {
+    text-align: center;
+    margin-top: 20px;
+    color: var(--light-text);
+}
+
+.dark-mode .login-link {
+    color: #8899a6;
+}
+
+.login-link a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.login-link a:hover {
+    text-decoration: underline;
+}
+
         .signup-link {
             text-align: center;
             margin-top: 20px;
@@ -1232,9 +1263,28 @@
                 <input type="password" id="password" class="form-control" placeholder="Enter your password">
             </div>
             <button class="login-btn" id="loginBtn">Sign in</button>
-            <div class="signup-link">
-                <p>Don't have an account? <a href="#" id="showSignup">Sign up</a></p>
-            </div>
+            <div class="signup-form" id="signupForm" style="display: none;">
+    <h2 class="signup-title">Create your account</h2>
+    <div class="form-group">
+        <label for="signupName">Full Name</label>
+        <input type="text" id="signupName" class="form-control" placeholder="Enter your full name">
+    </div>
+    <div class="form-group">
+        <label for="signupUsername">Username</label>
+        <input type="text" id="signupUsername" class="form-control" placeholder="Choose a username">
+    </div>
+    <div class="form-group">
+        <label for="signupPassword">Password</label>
+        <input type="password" id="signupPassword" class="form-control" placeholder="Create a password">
+    </div>
+    <button class="login-btn" id="signupBtn">Sign up</button>
+    <div class="login-link">
+        <p>Already have an account? <a href="#" id="showLogin">Sign in</a></p>
+    </div>
+</div>
+<div class="signup-link">
+    <p>Don't have an account? <a href="#" id="showSignup">Sign up</a></p>
+</div>
         </div>
     </div>
 
