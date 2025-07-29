@@ -1726,22 +1726,6 @@ document.getElementById('signupBtn').addEventListener('click', function() {
 
         
         // Signup function
-       // Replace this:
-async function signup(e) {
-    e.preventDefault();
-    const username = prompt('Enter a username:');
-    if (!username) return;
-    
-    const password = prompt('Enter a password:');
-    if (!password) return;
-    
-    const name = prompt('Enter your full name:');
-    if (!name) return;
-    
-    try {
-        // ... rest of your signup code
-    }
-}
 
 // With this:
 async function signupWithForm(name, username, password) {
