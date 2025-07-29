@@ -1,0 +1,2199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chirper - Twitter Clone</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        :root {
+            --primary: #1da1f2;
+            --primary-dark: #1a91da;
+            --background: #e6ecf0;
+            --text: #14171a;
+            --light-text: #657786;
+            --border: #e1e8ed;
+            --card-bg: #ffffff;
+            --hover: #f5f8fa;
+            --like: #e0245e;
+            --retweet: #17bf63;
+            --comment: #1da1f2;
+            --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            --dark-bg: #15202b;
+            --dark-card: #192734;
+            --dark-text: #f7f9f9;
+            --dark-border: #38444d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body.dark-mode {
+            background-color: var(--dark-bg);
+            color: var(--dark-text);
+        }
+
+        /* Login Page Styles */
+        .login-container {
+            display: flex;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1da1f2, #006dbf);
+            width: 100%;
+            padding: 20px;
+        }
+
+        .login-box {
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: var(--shadow);
+            animation: fadeIn 0.5s ease;
+        }
+
+        .dark-mode .login-box {
+            background-color: var(--dark-card);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .login-logo {
+            font-size: 48px;
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .login-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .dark-mode .login-title {
+            color: var(--dark-text);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .dark-mode .form-group label {
+            color: var(--dark-text);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .dark-mode .form-control {
+            background-color: var(--dark-card);
+            border-color: var(--dark-border);
+            color: var(--dark-text);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.2);
+        }
+
+        .login-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 700;
+            width: 100%;
+            margin-top: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .login-btn:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .signup-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.dark-mode .signup-title {
+    color: var(--dark-text);
+}
+
+.login-link {
+    text-align: center;
+    margin-top: 20px;
+    color: var(--light-text);
+}
+
+.dark-mode .login-link {
+    color: #8899a6;
+}
+
+.login-link a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.login-link a:hover {
+    text-decoration: underline;
+}
+
+        .signup-link {
+            text-align: center;
+            margin-top: 20px;
+            color: var(--light-text);
+        }
+
+        .dark-mode .signup-link {
+            color: #8899a6;
+        }
+
+        .signup-link a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .signup-link a:hover {
+            text-decoration: underline;
+        }
+
+        /* Main App Styles */
+        #mainApp {
+            display: none;
+            width: 100%;
+            position: relative;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 250px;
+            padding: 20px;
+            position: fixed;
+            height: 100vh;
+            border-right: 1px solid var(--border);
+            background-color: var(--card-bg);
+            transition: all 0.3s;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .dark-mode .sidebar {
+            background-color: var(--dark-card);
+            border-color: var(--dark-border);
+        }
+
+        .logo {
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: var(--primary);
+            text-align: center;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 5px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .dark-mode .nav-item {
+            color: var(--dark-text);
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background-color: var(--hover);
+            color: var(--primary);
+        }
+
+        .dark-mode .nav-item:hover, .dark-mode .nav-item.active {
+            background-color: #1e2a38;
+        }
+
+        .nav-item i {
+            margin-right: 15px;
+            width: 25px;
+            text-align: center;
+        }
+
+        .tweet-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 700;
+            width: 100%;
+            margin-top: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .tweet-btn:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .user-profile {
+            position: absolute;
+            bottom: 20px;
+            display: flex;
+            align-items: center;
+            width: calc(100% - 40px);
+            padding: 10px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .dark-mode .user-profile {
+            color: var(--dark-text);
+        }
+
+        .user-profile:hover {
+            background-color: var(--hover);
+        }
+
+        .dark-mode .user-profile:hover {
+            background-color: #1e2a38;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .user-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .user-name {
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-handle {
+            color: var(--light-text);
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .dark-mode .user-handle {
+            color: #8899a6;
+        }
+
+        /* Theme toggle */
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            margin-top: 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--hover);
+        }
+
+        .dark-mode .theme-toggle:hover {
+            background-color: #1e2a38;
+        }
+
+        .theme-toggle i {
+            margin-right: 15px;
+            width: 25px;
+            text-align: center;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            max-width: 600px;
+            border-right: 1px solid var(--border);
+            transition: all 0.3s;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dark-mode .main-content {
+            border-color: var(--dark-border);
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+        }
+
+        .dark-mode .header {
+            background-color: rgba(25, 39, 52, 0.95);
+            border-color: var(--dark-border);
+        }
+
+        .header h1 {
+            font-size: 20px;
+            flex: 1;
+        }
+
+        .dark-mode .header h1 {
+            color: var(--dark-text);
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-weight: 600;
+            padding: 8px 15px;
+            border-radius: 20px;
+            transition: background-color 0.3s;
+        }
+
+        .logout-btn:hover {
+            background-color: rgba(29, 161, 242, 0.1);
+        }
+
+        .dark-mode .logout-btn:hover {
+            background-color: rgba(29, 161, 242, 0.2);
+        }
+
+        .tweet-form {
+            padding: 15px;
+            border-bottom: 10px solid var(--background);
+        }
+
+        .dark-mode .tweet-form {
+            border-color: var(--dark-bg);
+        }
+
+        .tweet-input {
+            display: flex;
+            padding-bottom: 15px;
+        }
+
+        .tweet-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .tweet-textarea {
+            width: 100%;
+            border: none;
+            resize: none;
+            font-size: 20px;
+            min-height: 60px;
+            outline: none;
+            padding: 10px 0;
+            background: transparent;
+        }
+
+        .dark-mode .tweet-textarea {
+            color: var(--dark-text);
+        }
+
+        .tweet-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-left: 65px;
+        }
+
+        .tweet-icons i {
+            color: var(--primary);
+            font-size: 20px;
+            margin-right: 15px;
+            cursor: pointer;
+        }
+
+        /* Tweet Styles */
+        .tweets-container {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .tweet {
+            display: flex;
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            transition: background-color 0.3s;
+            cursor: pointer;
+            animation: slideIn 0.3s ease;
+        }
+
+        .dark-mode .tweet {
+            border-color: var(--dark-border);
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .tweet:hover {
+            background-color: var(--hover);
+        }
+
+        .dark-mode .tweet:hover {
+            background-color: #1e2a38;
+        }
+
+        .tweet-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .tweet-content {
+            flex: 1;
+        }
+
+        .tweet-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            flex-wrap: wrap;
+        }
+
+        .tweet-author {
+            font-weight: 700;
+            margin-right: 5px;
+        }
+
+        .dark-mode .tweet-author {
+            color: var(--dark-text);
+        }
+
+        .tweet-handle, .tweet-time {
+            color: var(--light-text);
+            margin-right: 5px;
+        }
+
+        .dark-mode .tweet-handle,
+        .dark-mode .tweet-time {
+            color: #8899a6;
+        }
+
+        .tweet-text {
+            font-size: 15px;
+            line-height: 1.4;
+            margin-bottom: 15px;
+        }
+
+        .dark-mode .tweet-text {
+            color: var(--dark-text);
+        }
+        
+        .tweet-image {
+            width: 100%;
+            border-radius: 15px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        .tweet-stats {
+            display: flex;
+            color: var(--light-text);
+            max-width: 500px;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        .tweet-stat {
+            display: flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .dark-mode .tweet-stat {
+            color: #8899a6;
+        }
+
+        .tweet-stat:hover {
+            background-color: rgba(29, 161, 242, 0.1);
+            color: var(--primary);
+        }
+
+        .tweet-stat i {
+            margin-right: 5px;
+        }
+
+        .tweet-stat.comment:hover {
+            background-color: rgba(29, 161, 242, 0.1);
+            color: var(--comment);
+        }
+
+        .tweet-stat.retweet:hover {
+            background-color: rgba(23, 191, 99, 0.1);
+            color: var(--retweet);
+        }
+
+        .tweet-stat.like:hover {
+            background-color: rgba(224, 36, 94, 0.1);
+            color: var(--like);
+        }
+
+        .tweet-stat.liked {
+            color: var(--like);
+        }
+
+        .tweet-stat.retweeted {
+            color: var(--retweet);
+        }
+        
+        .comment-form {
+            display: flex;
+            margin-top: 10px;
+            padding: 10px;
+            background: var(--hover);
+            border-radius: 10px;
+        }
+        
+        .dark-mode .comment-form {
+            background: #1e2a38;
+        }
+        
+        .comment-input {
+            flex: 1;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 10px 15px;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        .dark-mode .comment-input {
+            background-color: var(--dark-card);
+            border-color: var(--dark-border);
+            color: var(--dark-text);
+        }
+        
+        .comment-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 0 15px;
+            cursor: pointer;
+        }
+        
+        .comments-container {
+            margin-top: 10px;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+        }
+        
+        .dark-mode .comments-container {
+            border-color: var(--dark-border);
+        }
+        
+        .comment {
+            display: flex;
+            padding: 10px 0;
+        }
+        
+        .comment-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .comment-content {
+            flex: 1;
+        }
+        
+        .comment-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 3px;
+            flex-wrap: wrap;
+        }
+        
+        .comment-author {
+            font-weight: 700;
+            margin-right: 5px;
+            font-size: 14px;
+        }
+        
+        .comment-handle, .comment-time {
+            color: var(--light-text);
+            margin-right: 5px;
+            font-size: 12px;
+        }
+        
+        .comment-text {
+            font-size: 14px;
+        }
+
+        /* Right Sidebar Styles */
+        .right-sidebar {
+            width: 350px;
+            padding: 20px;
+            position: fixed;
+            right: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .dark-mode .right-sidebar {
+            color: var(--dark-text);
+        }
+
+        .search-container {
+            background-color: var(--hover);
+            border-radius: 30px;
+            padding: 10px 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .dark-mode .search-container {
+            background-color: #1e2a38;
+        }
+
+        .search-container i {
+            color: var(--light-text);
+            margin-right: 10px;
+        }
+
+        .search-container input {
+            background: none;
+            border: none;
+            outline: none;
+            font-size: 15px;
+            width: 100%;
+        }
+
+        .dark-mode .search-container input {
+            color: var(--dark-text);
+        }
+
+        .trends-card {
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .dark-mode .trends-card {
+            background-color: var(--dark-card);
+        }
+
+        .trends-card h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .dark-mode .trends-card h2 {
+            color: var(--dark-text);
+        }
+
+        .trend-item {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border-radius: 5px;
+            padding: 10px;
+        }
+
+        .dark-mode .trend-item {
+            border-color: var(--dark-border);
+        }
+
+        .trend-item:hover {
+            background-color: var(--hover);
+        }
+
+        .dark-mode .trend-item:hover {
+            background-color: #1e2a38;
+        }
+
+        .trend-item:last-child {
+            border-bottom: none;
+        }
+
+        .trend-category {
+            font-size: 13px;
+            color: var(--light-text);
+        }
+
+        .trend-name {
+            font-weight: 700;
+            margin: 3px 0;
+        }
+
+        .dark-mode .trend-name {
+            color: var(--dark-text);
+        }
+
+        .trend-count {
+            font-size: 13px;
+            color: var(--light-text);
+        }
+
+        .who-to-follow {
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: var(--shadow);
+        }
+
+        .dark-mode .who-to-follow {
+            background-color: var(--dark-card);
+        }
+
+        .who-to-follow h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .dark-mode .who-to-follow h2 {
+            color: var(--dark-text);
+        }
+
+        .follow-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .dark-mode .follow-item {
+            border-color: var(--dark-border);
+        }
+
+        .follow-item:last-child {
+            border-bottom: none;
+        }
+
+        .follow-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .follow-info {
+            flex: 1;
+        }
+
+        .follow-name {
+            font-weight: 700;
+        }
+
+        .dark-mode .follow-name {
+            color: var(--dark-text);
+        }
+
+        .follow-handle {
+            color: var(--light-text);
+        }
+
+        .follow-btn {
+            background-color: var(--text);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 8px 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .dark-mode .follow-btn {
+            background-color: var(--primary);
+        }
+
+        .follow-btn.following {
+            background-color: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .dark-mode .follow-btn.following {
+            border-color: var(--dark-border);
+            color: var(--dark-text);
+        }
+
+        .follow-btn:hover {
+            background-color: #333;
+        }
+
+        .follow-btn.following:hover {
+            background-color: rgba(224, 36, 94, 0.1);
+            color: var(--like);
+            border-color: var(--like);
+        }
+
+        /* Profile Page */
+        .profile-header {
+            position: relative;
+            height: 200px;
+            background-color: var(--primary);
+        }
+        
+        .profile-cover {
+            height: 150px;
+            background-color: var(--primary);
+            position: relative;
+        }
+        
+        .profile-avatar {
+            position: absolute;
+            bottom: -40px;
+            left: 20px;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            border: 4px solid var(--card-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+        }
+        
+        .dark-mode .profile-avatar {
+            border-color: var(--dark-card);
+        }
+        
+        .profile-info {
+            padding: 60px 20px 20px;
+        }
+        
+        .profile-name {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .profile-handle {
+            color: var(--light-text);
+            margin-bottom: 10px;
+        }
+        
+        .profile-bio {
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        
+        .profile-stats {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        .profile-stat {
+            margin-right: 20px;
+        }
+        
+        .profile-stat-value {
+            font-weight: 700;
+            margin-right: 5px;
+        }
+        
+        .profile-stat-label {
+            color: var(--light-text);
+        }
+        
+        .profile-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .dark-mode .profile-tabs {
+            border-color: var(--dark-border);
+        }
+        
+        .profile-tab {
+            padding: 15px;
+            text-align: center;
+            flex: 1;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .profile-tab.active {
+            border-bottom: 3px solid var(--primary);
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--border);
+            z-index: 1000;
+        }
+        
+        .dark-mode .mobile-nav {
+            background-color: var(--dark-card);
+            border-color: var(--dark-border);
+        }
+        
+        .mobile-nav-items {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+        }
+        
+        .mobile-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 12px;
+        }
+        
+        .mobile-nav-item.active {
+            color: var(--primary);
+        }
+        
+        .mobile-nav-item i {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        
+        .mobile-tweet-btn {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            cursor: pointer;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .right-sidebar {
+                display: none;
+            }
+        }
+
+        @media (max-width: 1000px) {
+            .sidebar {
+                width: 80px;
+            }
+            .nav-item span {
+                display: none;
+            }
+            .nav-item i {
+                margin-right: 0;
+                font-size: 24px;
+            }
+            .tweet-btn span {
+                display: none;
+            }
+            .tweet-btn i {
+                display: block;
+                font-size: 24px;
+            }
+            .user-info {
+                display: none;
+            }
+            .theme-toggle span {
+                display: none;
+            }
+            .main-content {
+                margin-left: 80px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            .main-content {
+                margin-left: 0;
+                max-width: 100%;
+                border-right: none;
+            }
+            
+            .mobile-nav {
+                display: block;
+            }
+            
+            .mobile-tweet-btn {
+                display: flex;
+            }
+            
+            .tweet-form {
+                padding: 10px;
+            }
+            
+            .tweet-input {
+                padding-bottom: 10px;
+            }
+            
+            .tweet-actions {
+                padding-left: 0;
+                justify-content: space-between;
+            }
+            
+            .tweet-icons {
+                display: flex;
+            }
+            
+            .tweet-btn {
+                padding: 10px 15px;
+                font-size: 16px;
+            }
+            
+            .profile-header {
+                height: auto;
+            }
+            
+            .profile-cover {
+                height: 120px;
+            }
+            
+            .profile-avatar {
+                width: 80px;
+                height: 80px;
+                bottom: -30px;
+                font-size: 24px;
+            }
+            
+            .profile-info {
+                padding: 40px 15px 15px;
+            }
+            
+            .profile-name {
+                font-size: 20px;
+            }
+            
+            .profile-tab {
+                padding: 10px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-box {
+                padding: 20px;
+            }
+            
+            .login-title {
+                font-size: 24px;
+            }
+            
+            .tweet-textarea {
+                font-size: 18px;
+                min-height: 50px;
+            }
+            
+            .tweet-stat {
+                padding: 5px;
+            }
+            
+            .tweet-stat span {
+                display: none;
+            }
+            
+            .profile-stat {
+                margin-right: 10px;
+            }
+            
+            .profile-stat-value,
+            .profile-stat-label {
+                font-size: 14px;
+            }
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            background-color: var(--primary);
+            color: white;
+            font-weight: 600;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            transform: translateX(200%);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.error {
+            background-color: #e0245e;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Page -->
+  <!-- Login Page -->
+<div class="login-container" id="loginPage">
+    <div class="login-box" id="loginForm">
+        <div class="login-logo">
+            <i class="fab fa-twitter"></i>
+        </div>
+        <h1 class="login-title">Welcome to Chirper</h1>
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" class="form-control" placeholder="Enter your username">
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" class="form-control" placeholder="Enter your password">
+        </div>
+        <button class="login-btn" id="loginBtn">Sign in</button>
+        <div class="signup-link">
+            <p>Don't have an account? <a href="#" id="showSignup">Sign up</a></p>
+        </div>
+    </div>
+
+    <div class="login-box" id="signupForm" style="display: none;">
+        <div class="login-logo">
+            <i class="fab fa-twitter"></i>
+        </div>
+        <h1 class="login-title">Create your account</h1>
+        <div class="form-group">
+            <label for="signupName">Full Name</label>
+            <input type="text" id="signupName" class="form-control" placeholder="Enter your full name">
+        </div>
+        <div class="form-group">
+            <label for="signupUsername">Username</label>
+            <input type="text" id="signupUsername" class="form-control" placeholder="Choose a username">
+        </div>
+        <div class="form-group">
+            <label for="signupPassword">Password</label>
+            <input type="password" id="signupPassword" class="form-control" placeholder="Create a password">
+        </div>
+        <button class="login-btn" id="signupBtn">Sign up</button>
+        <div class="login-link">
+            <p>Already have an account? <a href="#" id="showLogin">Sign in</a></p>
+        </div>
+    </div>
+</div>sh
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <i class="fab fa-twitter"></i> Chirper
+            </div>
+            <div class="nav-item active" data-page="home">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </div>
+            <div class="nav-item" data-page="explore">
+                <i class="fas fa-hashtag"></i>
+                <span>Explore</span>
+            </div>
+            <div class="nav-item" data-page="notifications">
+                <i class="far fa-bell"></i>
+                <span>Notifications</span>
+            </div>
+            <div class="nav-item" data-page="messages">
+                <i class="far fa-envelope"></i>
+                <span>Messages</span>
+            </div>
+            <div class="nav-item" data-page="bookmarks">
+                <i class="far fa-bookmark"></i>
+                <span>Bookmarks</span>
+            </div>
+            <div class="nav-item" data-page="profile">
+                <i class="far fa-user"></i>
+                <span>Profile</span>
+            </div>
+            <div class="nav-item">
+                <i class="fas fa-ellipsis-h"></i>
+                <span>More</span>
+            </div>
+            <button class="tweet-btn" id="composeBtn">
+                <span>Chirp</span>
+            </button>
+            <div class="theme-toggle" id="themeToggle">
+                <i class="fas fa-moon"></i>
+                <span>Dark Mode</span>
+            </div>
+            <div class="user-profile" data-page="profile">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-info">
+                    <div class="user-name" id="userName">User</div>
+                    <div class="user-handle" id="userHandle">@username</div>
+                </div>
+                <i class="fas fa-ellipsis-h"></i>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <h1 id="pageTitle">Home</h1>
+                <button class="logout-btn" id="logoutBtn">Logout</button>
+            </div>
+            
+            <!-- Home Page -->
+            <div class="page" id="homePage">
+                <div class="tweet-form">
+                    <div class="tweet-input">
+                        <div class="tweet-avatar" id="currentUserAvatar">U</div>
+                        <textarea class="tweet-textarea" placeholder="What's happening?" id="tweetContent"></textarea>
+                    </div>
+                    <div class="tweet-actions">
+                        <div class="tweet-icons">
+                            <i class="far fa-image" id="imageUploadBtn"></i>
+                            <i class="fas fa-poll"></i>
+                            <i class="far fa-smile"></i>
+                            <i class="far fa-calendar-alt"></i>
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <button class="tweet-btn" id="postTweet">Chirp</button>
+                    </div>
+                </div>
+                <div class="tweets-container" id="tweetsContainer">
+                    <!-- Tweets will be dynamically added here -->
+                </div>
+            </div>
+            
+            <!-- Profile Page -->
+            <div class="page" id="profilePage" style="display:none;">
+                <div class="profile-header">
+                    <div class="profile-cover"></div>
+                    <div class="profile-avatar" id="profileAvatar">U</div>
+                    <div class="profile-info">
+                        <div class="profile-name" id="profileName">User Name</div>
+                        <div class="profile-handle" id="profileHandle">@username</div>
+                        <div class="profile-bio" id="profileBio">This is a sample bio. User hasn't added a bio yet.</div>
+                        <div class="profile-stats">
+                            <div class="profile-stat">
+                                <span class="profile-stat-value" id="followingCount">0</span>
+                                <span class="profile-stat-label">Following</span>
+                            </div>
+                            <div class="profile-stat">
+                                <span class="profile-stat-value" id="followersCount">0</span>
+                                <span class="profile-stat-label">Followers</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="profile-tabs">
+                    <div class="profile-tab active">Tweets</div>
+                    <div class="profile-tab">Tweets & Replies</div>
+                    <div class="profile-tab">Media</div>
+                    <div class="profile-tab">Likes</div>
+                </div>
+                <div class="tweets-container" id="profileTweetsContainer">
+                    <!-- Profile tweets will be dynamically added here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="right-sidebar">
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search Chirper" id="searchInput">
+            </div>
+            <div class="trends-card">
+                <h2>Trends for you</h2>
+                <div class="trend-item">
+                    <div class="trend-category">Technology · Trending</div>
+                    <div class="trend-name">#AIRevolution</div>
+                    <div class="trend-count">25.4K Chirps</div>
+                </div>
+                <div class="trend-item">
+                    <div class="trend-category">Sports · Trending</div>
+                    <div class="trend-name">World Cup</div>
+                    <div class="trend-count">18.2K Chirps</div>
+                </div>
+                <div class="trend-item">
+                    <div class="trend-category">Entertainment · Trending</div>
+                    <div class="trend-name">New Movie Releases</div>
+                    <div class="trend-count">12.7K Chirps</div>
+                </div>
+                <div class="trend-item">
+                    <div class="trend-category">Politics · Trending</div>
+                    <div class="trend-name">Election Updates</div>
+                    <div class="trend-count">8.9K Chirps</div>
+                </div>
+                <div class="trend-item">
+                    <div class="trend-category">Trending in Science</div>
+                    <div class="trend-name">Space Exploration</div>
+                    <div class="trend-count">5.3K Chirps</div>
+                </div>
+            </div>
+            <div class="who-to-follow">
+                <h2>Who to follow</h2>
+                <div class="follow-item">
+                    <div class="follow-avatar">MT</div>
+                    <div class="follow-info">
+                        <div class="follow-name">Marie Thompson</div>
+                        <div class="follow-handle">@mariet</div>
+                    </div>
+                    <button class="follow-btn">Follow</button>
+                </div>
+                <div class="follow-item">
+                    <div class="follow-avatar">DC</div>
+                    <div class="follow-info">
+                        <div class="follow-name">David Chen</div>
+                        <div class="follow-handle">@davidchen</div>
+                    </div>
+                    <button class="follow-btn">Follow</button>
+                </div>
+                <div class="follow-item">
+                    <div class="follow-avatar">SP</div>
+                    <div class="follow-info">
+                        <div class="follow-name">Sarah Parker</div>
+                        <div class="follow-handle">@sarahp</div>
+                    </div>
+                    <button class="follow-btn">Follow</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Navigation -->
+        <div class="mobile-nav">
+            <div class="mobile-nav-items">
+                <div class="mobile-nav-item active" data-page="home">
+                    <i class="fas fa-home"></i>
+                    <span>Home</span>
+                </div>
+                <div class="mobile-nav-item" data-page="explore">
+                    <i class="fas fa-hashtag"></i>
+                    <span>Explore</span>
+                </div>
+                <div class="mobile-nav-item" data-page="notifications">
+                    <i class="far fa-bell"></i>
+                    <span>Alerts</span>
+                </div>
+                <div class="mobile-nav-item" data-page="messages">
+                    <i class="far fa-envelope"></i>
+                    <span>Messages</span>
+                </div>
+                <div class="mobile-nav-item" data-page="profile">
+                    <i class="far fa-user"></i>
+                    <span>Profile</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Tweet Button -->
+        <div class="mobile-tweet-btn" id="mobileComposeBtn">
+            <i class="fas fa-feather-alt"></i>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        Notification message
+    </div>
+
+    <script>
+        // Configuration
+        const SERVER_URL = 'https://per-offered-assessing-fame.trycloudflare.com'; // Change to your server URL if different
+        
+        // Connect to Socket.IO server
+        const socket = io(SERVER_URL);
+        
+        // Current user state
+        let currentUser = null;
+        let allTweets = [];
+        let following = [];
+        let followers = [];
+        let currentPage = 'home';
+        
+        // DOM Elements
+        const loginPage = document.getElementById('loginPage');
+        const mainApp = document.getElementById('mainApp');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const postTweetBtn = document.getElementById('postTweet');
+        const composeBtn = document.getElementById('composeBtn');
+        const showSignup = document.getElementById('showSignup');
+        const tweetsContainer = document.getElementById('tweetsContainer');
+        const profileTweetsContainer = document.getElementById('profileTweetsContainer');
+        const tweetContent = document.getElementById('tweetContent');
+        const userName = document.getElementById('userName');
+        const userHandle = document.getElementById('userHandle');
+        const userAvatar = document.getElementById('userAvatar');
+        const currentUserAvatar = document.getElementById('currentUserAvatar');
+        const notification = document.getElementById('notification');
+        const searchInput = document.getElementById('searchInput');
+        const themeToggle = document.getElementById('themeToggle');
+        const homePage = document.getElementById('homePage');
+        const profilePage = document.getElementById('profilePage');
+        const pageTitle = document.getElementById('pageTitle');
+        const profileName = document.getElementById('profileName');
+        const profileHandle = document.getElementById('profileHandle');
+        const profileAvatar = document.getElementById('profileAvatar');
+        const profileBio = document.getElementById('profileBio');
+        const followingCount = document.getElementById('followingCount');
+        const followersCount = document.getElementById('followersCount');
+        const mobileComposeBtn = document.getElementById('mobileComposeBtn');
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is logged in
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                showMainApp();
+                loadTweets();
+                loadFollowing();
+                loadUserProfile();
+            } else {
+                loginPage.style.display = 'flex';
+            }
+            
+            // Event listeners
+            loginBtn.addEventListener('click', login);
+            logoutBtn.addEventListener('click', logout);
+            postTweetBtn.addEventListener('click', postTweet);
+            composeBtn.addEventListener('click', focusTweetInput);
+            // Event listeners for toggling between forms
+showSignup.addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('signupForm').style.display = 'block';
+});
+
+document.getElementById('showLogin').addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('signupForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+});
+
+// Signup function
+async function signupWithForm(name, username, password) {
+    try {
+        const response = await fetch(`${SERVER_URL}/api/signup`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password, name })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Signup failed');
+        }
+        
+        const data = await response.json();
+        currentUser = data.user;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        showMainApp();
+        showNotification(`Welcome to Chirper, ${name}!`);
+    } catch (error) {
+        console.error('Signup error:', error);
+        showNotification(error.message || 'Network error. Please try again.', 'error');
+    }
+}
+
+// Signup button event listener
+document.getElementById('signupBtn').addEventListener('click', function() {
+    const name = document.getElementById('signupName').value.trim();
+    const username = document.getElementById('signupUsername').value.trim();
+    const password = document.getElementById('signupPassword').value.trim();
+    
+    if (!name || !username || !password) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+    }
+    
+    signupWithForm(name, username, password);
+});
+            searchInput.addEventListener('input', searchTweets);
+            themeToggle.addEventListener('click', toggleDarkMode);
+            mobileComposeBtn.addEventListener('click', focusTweetInput);
+            
+            // Navigation
+            document.querySelectorAll('.nav-item, .user-profile, .mobile-nav-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const page = this.dataset.page;
+                    if (page) navigateToPage(page);
+                });
+            });
+            
+            // Socket.IO listeners
+            socket.on('connect', () => {
+                console.log('Connected to Socket.IO server');
+            });
+            
+            socket.on('new-tweet', (tweet) => {
+                // Convert string IDs to ObjectId format for comparison
+                const tweetUserId = typeof tweet.userId === 'string' ? tweet.userId : tweet.userId._id;
+                
+                if (following.some(id => id.toString() === tweetUserId) || 
+                    tweetUserId === currentUser._id) {
+                    allTweets.unshift(tweet);
+                    renderTweets();
+                    showNotification(`New tweet from ${tweet.author}`);
+                }
+            });
+            
+            socket.on('tweet-liked', (updatedTweet) => {
+                const index = allTweets.findIndex(t => t._id === updatedTweet._id);
+                if (index !== -1) {
+                    allTweets[index] = updatedTweet;
+                    renderTweets();
+                }
+            });
+        });
+        
+        // Load tweets from server
+        async function loadTweets() {
+            try {
+                const response = await fetch(`${SERVER_URL}/api/tweets`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                allTweets = await response.json();
+                renderTweets();
+            } catch (error) {
+                console.error('Error loading tweets:', error);
+                showNotification('Failed to load tweets', 'error');
+            }
+        }
+        
+        // Load following list
+        async function loadFollowing() {
+            if (!currentUser) return;
+            try {
+                const response = await fetch(`${SERVER_URL}/api/users/${currentUser._id}/following`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                following = await response.json();
+            } catch (error) {
+                console.error('Error loading following:', error);
+            }
+        }
+        
+        // Load user profile
+        async function loadUserProfile() {
+            if (!currentUser) return;
+            try {
+                const response = await fetch(`${SERVER_URL}/api/users/${currentUser._id}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const userData = await response.json();
+                
+                // Update profile info
+                profileName.textContent = userData.name;
+                profileHandle.textContent = `@${userData.username}`;
+                profileAvatar.textContent = userData.avatar;
+                profileBio.textContent = userData.bio || "This user hasn't added a bio yet.";
+                followingCount.textContent = userData.following.length;
+                followersCount.textContent = userData.followers || 0;
+                
+                // Load profile tweets
+                const tweetsResponse = await fetch(`${SERVER_URL}/api/tweets/user/${userData._id}`);
+                if (tweetsResponse.ok) {
+                    const profileTweets = await tweetsResponse.json();
+                    renderProfileTweets(profileTweets);
+                }
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+            }
+        }
+        
+        // Login function
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showNotification('Please enter both username and password', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Login failed');
+                }
+                
+                const data = await response.json();
+                currentUser = data.user;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                showMainApp();
+                loadTweets();
+                loadFollowing();
+                loadUserProfile();
+                showNotification(`Welcome back, ${currentUser.name}!`);
+            } catch (error) {
+                console.error('Login error:', error);
+                showNotification(error.message || 'Network error. Please try again.', 'error');
+            }
+        }
+        
+        // Signup function
+        async function signup(e) {
+            e.preventDefault();
+            const username = prompt('Enter a username:');
+            if (!username) return;
+            
+            const password = prompt('Enter a password:');
+            if (!password) return;
+            
+            const name = prompt('Enter your full name:');
+            if (!name) return;
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/signup`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password, name })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Signup failed');
+                }
+                
+                const data = await response.json();
+                currentUser = data.user;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                showMainApp();
+                showNotification(`Welcome to Chirper, ${name}!`);
+            } catch (error) {
+                console.error('Signup error:', error);
+                showNotification(error.message || 'Network error. Please try again.', 'error');
+            }
+        }
+        
+        // Logout function
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            loginPage.style.display = 'flex';
+            mainApp.style.display = 'none';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            showNotification('You have been logged out');
+        }
+        
+        // Show main app
+        function showMainApp() {
+            loginPage.style.display = 'none';
+            mainApp.style.display = 'flex';
+            
+            // Update user info
+            if (currentUser) {
+                userName.textContent = currentUser.name;
+                userHandle.textContent = `@${currentUser.username}`;
+                userAvatar.textContent = currentUser.avatar;
+                currentUserAvatar.textContent = currentUser.avatar;
+            }
+            
+            // Check dark mode preference
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                document.body.classList.add('dark-mode');
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i><span>Light Mode</span>';
+            }
+        }
+        
+        // Post a new tweet
+        async function postTweet() {
+            const content = tweetContent.value.trim();
+            
+            if (!content) {
+                showNotification('Please enter some text for your tweet', 'error');
+                return;
+            }
+            
+            if (content.length > 280) {
+                showNotification('Tweet cannot exceed 280 characters', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/tweets`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.token}`
+                    },
+                    body: JSON.stringify({ content })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to post tweet');
+                }
+                
+                const newTweet = await response.json();
+                allTweets.unshift(newTweet);
+                renderTweets();
+                tweetContent.value = '';
+                showNotification('Your tweet has been posted!');
+                
+                // Notify followers via Socket.IO
+                socket.emit('new-tweet', newTweet);
+            } catch (error) {
+                console.error('Error posting tweet:', error);
+                showNotification(error.message || 'Network error. Please try again.', 'error');
+            }
+        }
+        
+        // Render tweets to the page
+        function renderTweets(tweetsToRender = allTweets) {
+            tweetsContainer.innerHTML = '';
+            
+            if (tweetsToRender.length === 0) {
+                tweetsContainer.innerHTML = '<div class="tweet"><div class="tweet-content" style="text-align: center; padding: 20px;">No tweets found. Start following users to see tweets!</div></div>';
+                return;
+            }
+            
+            tweetsToRender.forEach(tweet => {
+                const tweetElement = createTweetElement(tweet);
+                tweetsContainer.appendChild(tweetElement);
+            });
+        }
+        
+        // Render profile tweets
+        function renderProfileTweets(tweets) {
+            profileTweetsContainer.innerHTML = '';
+            
+            if (tweets.length === 0) {
+                profileTweetsContainer.innerHTML = '<div class="tweet"><div class="tweet-content" style="text-align: center; padding: 20px;">No tweets yet. Start chirping!</div></div>';
+                return;
+            }
+            
+            tweets.forEach(tweet => {
+                const tweetElement = createTweetElement(tweet);
+                profileTweetsContainer.appendChild(tweetElement);
+            });
+        }
+        
+        // Create a tweet element
+        function createTweetElement(tweet) {
+            const tweetEl = document.createElement('div');
+            tweetEl.className = 'tweet';
+            tweetEl.dataset.id = tweet._id;
+            
+            // Format time
+            const formattedTime = formatTime(tweet.createdAt);
+            
+            // Check if liked by current user
+            const isLiked = tweet.likes.some(like => {
+                // Handle both string IDs and populated user objects
+                const likeId = typeof like === 'string' ? like : like._id;
+                return likeId === currentUser._id;
+            });
+            
+            tweetEl.innerHTML = `
+                <div class="tweet-avatar">${tweet.avatar}</div>
+                <div class="tweet-content">
+                    <div class="tweet-header">
+                        <div class="tweet-author">${tweet.author}</div>
+                        <div class="tweet-handle">${tweet.handle}</div>
+                        <div class="tweet-time">· ${formattedTime}</div>
+                    </div>
+                    <div class="tweet-text">${tweet.content}</div>
+                    ${tweet.image ? `<img src="${SERVER_URL}${tweet.image}" class="tweet-image">` : ''}
+                    <div class="tweet-stats">
+                        <div class="tweet-stat comment">
+                            <i class="far fa-comment"></i>
+                            <span>${tweet.comments ? tweet.comments.length : 0}</span>
+                        </div>
+                        <div class="tweet-stat retweet">
+                            <i class="fas fa-retweet"></i>
+                            <span>${tweet.retweets || 0}</span>
+                        </div>
+                        <div class="tweet-stat like ${isLiked ? 'liked' : ''}" data-id="${tweet._id}">
+                            <i class="${isLiked ? 'fas' : 'far'} fa-heart"></i>
+                            <span>${tweet.likes ? tweet.likes.length : 0}</span>
+                        </div>
+                        <div class="tweet-stat">
+                            <i class="fas fa-share-alt" onclick="shareTweet('${tweet._id}')"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Comment form -->
+                    <div class="comment-form" style="display:none;">
+                        <input type="text" class="comment-input" placeholder="Write a comment...">
+                        <button class="comment-btn">Reply</button>
+                    </div>
+                    
+                    <!-- Comments container -->
+                    <div class="comments-container">
+                        ${renderComments(tweet.comments || [])}
+                    </div>
+                </div>
+            `;
+            
+            // Add like functionality
+            const likeButton = tweetEl.querySelector('.tweet-stat.like');
+            likeButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleLike(tweet._id);
+            });
+            
+            // Add comment toggle
+            const commentButton = tweetEl.querySelector('.tweet-stat.comment');
+            commentButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const commentForm = tweetEl.querySelector('.comment-form');
+                commentForm.style.display = commentForm.style.display === 'none' ? 'flex' : 'none';
+            });
+            
+            // Add comment submission
+            const commentBtn = tweetEl.querySelector('.comment-btn');
+            const commentInput = tweetEl.querySelector('.comment-input');
+            if (commentBtn && commentInput) {
+                commentBtn.addEventListener('click', function() {
+                    postComment(tweet._id, commentInput.value);
+                    commentInput.value = '';
+                });
+                
+                commentInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        postComment(tweet._id, commentInput.value);
+                        commentInput.value = '';
+                    }
+                });
+            }
+            
+            return tweetEl;
+        }
+        
+        // Render comments
+        function renderComments(comments) {
+            if (!comments || comments.length === 0) return '';
+            
+            return comments.map(comment => `
+                <div class="comment">
+                    <div class="comment-avatar">${comment.user.avatar}</div>
+                    <div class="comment-content">
+                        <div class="comment-header">
+                            <div class="comment-author">${comment.user.name}</div>
+                            <div class="comment-handle">@${comment.user.username}</div>
+                            <div class="comment-time">· ${formatTime(comment.createdAt)}</div>
+                        </div>
+                        <div class="comment-text">${comment.content}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Format time
+        function formatTime(dateString) {
+            const now = new Date();
+            const tweetDate = new Date(dateString);
+            const diffInSeconds = Math.floor((now - tweetDate) / 1000);
+            
+            if (diffInSeconds < 60) {
+                return 'just now';
+            }
+            
+            const diffInMinutes = Math.floor(diffInSeconds / 60);
+            if (diffInMinutes < 60) {
+                return `${diffInMinutes}m`;
+            }
+            
+            const diffInHours = Math.floor(diffInMinutes / 60);
+            if (diffInHours < 24) {
+                return `${diffInHours}h`;
+            }
+            
+            const diffInDays = Math.floor(diffInHours / 24);
+            if (diffInDays < 30) {
+                return `${diffInDays}d`;
+            }
+            
+            return tweetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+        
+        // Toggle like on a tweet
+        async function toggleLike(tweetId) {
+            try {
+                const response = await fetch(`${SERVER_URL}/api/tweets/${tweetId}/like`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to like tweet');
+                }
+                
+                const updatedTweet = await response.json();
+                const index = allTweets.findIndex(t => t._id === tweetId);
+                if (index !== -1) {
+                    allTweets[index] = updatedTweet;
+                    renderTweets();
+                }
+                
+                // Notify via Socket.IO
+                socket.emit('tweet-liked', updatedTweet);
+            } catch (error) {
+                console.error('Error toggling like:', error);
+                showNotification(error.message || 'Network error. Please try again.', 'error');
+            }
+        }
+        
+        // Post a comment
+        async function postComment(tweetId, content) {
+            if (!content.trim()) {
+                showNotification('Comment cannot be empty', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/tweets/${tweetId}/comment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.token}`
+                    },
+                    body: JSON.stringify({ content })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to post comment');
+                }
+                
+                const updatedTweet = await response.json();
+                const index = allTweets.findIndex(t => t._id === tweetId);
+                if (index !== -1) {
+                    allTweets[index] = updatedTweet;
+                    renderTweets();
+                }
+                
+                showNotification('Comment posted!');
+            } catch (error) {
+                console.error('Error posting comment:', error);
+                showNotification(error.message || 'Network error. Please try again.', 'error');
+            }
+        }
+        
+        // Focus tweet input
+        function focusTweetInput() {
+            tweetContent.focus();
+        }
+        
+        // Show notification
+        function showNotification(message, type = '') {
+            notification.textContent = message;
+            notification.className = 'notification';
+            if (type) notification.classList.add(type);
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Search tweets
+        function searchTweets() {
+            const term = searchInput.value.toLowerCase().trim();
+            
+            if (!term) {
+                renderTweets();
+                return;
+            }
+            
+            const filteredTweets = allTweets.filter(tweet => 
+                tweet.content.toLowerCase().includes(term) ||
+                tweet.author.toLowerCase().includes(term) ||
+                tweet.handle.toLowerCase().includes(term)
+            );
+            
+            renderTweets(filteredTweets);
+        }
+        
+        // Toggle dark mode
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            
+            if (document.body.classList.contains('dark-mode')) {
+                localStorage.setItem('darkMode', 'enabled');
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i><span>Light Mode</span>';
+            } else {
+                localStorage.setItem('darkMode', 'disabled');
+                themeToggle.innerHTML = '<i class="fas fa-moon"></i><span>Dark Mode</span>';
+            }
+        }
+        
+        // Navigate to page
+        function navigateToPage(page) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(p => {
+                p.style.display = 'none';
+            });
+            
+            // Update active nav item
+            document.querySelectorAll('.nav-item, .mobile-nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Show selected page
+            if (page === 'home') {
+                homePage.style.display = 'block';
+                pageTitle.textContent = 'Home';
+                document.querySelector('[data-page="home"]').classList.add('active');
+            } else if (page === 'profile') {
+                profilePage.style.display = 'block';
+                pageTitle.textContent = 'Profile';
+                document.querySelector('[data-page="profile"]').classList.add('active');
+                loadUserProfile();
+            }
+            
+            currentPage = page;
+        }
+        
+        // Share tweet
+        function shareTweet(tweetId) {
+            const tweetUrl = `${window.location.origin}/tweet/${tweetId}`;
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(tweetUrl)
+                .then(() => {
+                    showNotification('Link copied to clipboard!');
+                })
+                .catch(err => {
+                    console.error('Failed to copy: ', err);
+                    showNotification('Failed to copy link', 'error');
+                });
+        }
+    </script>
+</body>
+</html>
