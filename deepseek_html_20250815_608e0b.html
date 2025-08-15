@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chirper - Twitter Clone</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+</head>
+<body>
+    <!-- Login Page -->
+    <div class="login-container" id="loginPage">
+        <div class="login-box" id="loginForm">
+            <div class="login-logo">
+                <i class="fab fa-twitter"></i>
+            </div>
+            <h1 class="login-title">Welcome to Chirper</h1>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" class="form-control" placeholder="Enter your username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" class="form-control" placeholder="Enter your password">
+            </div>
+            <button class="login-btn" id="loginBtn">Sign in</button>
+            <div class="signup-link">
+                <p>Don't have an account? <a href="#" id="showSignup">Sign up</a></p>
+            </div>
+        </div>
+
+        <div class="login-box" id="signupForm" style="display: none;">
+            <div class="login-logo">
+                <i class="fab fa-twitter"></i>
+            </div>
+            <h1 class="login-title">Create your account</h1>
+            <div class="form-group">
+                <label for="signupName">Full Name</label>
+                <input type="text" id="signupName" class="form-control" placeholder="Enter your full name">
+            </div>
+            <div class="form-group">
+                <label for="signupUsername">Username</label>
+                <input type="text" id="signupUsername" class="form-control" placeholder="Choose a username">
+            </div>
+            <div class="form-group">
+                <label for="signupPassword">Password</label>
+                <input type="password" id="signupPassword" class="form-control" placeholder="Create a password">
+            </div>
+            <div class="form-group">
+                <label for="signupBio">Bio (Optional)</label>
+                <textarea id="signupBio" class="form-control" placeholder="Tell us about yourself"></textarea>
+            </div>
+            <button class="login-btn" id="signupBtn">Sign up</button>
+            <div class="login-link">
+                <p>Already have an account? <a href="#" id="showLogin">Sign in</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <i class="fab fa-twitter"></i> Chirper
+            </div>
+            <div class="nav-item active" data-page="home">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </div>
+            <div class="nav-item" data-page="explore">
+                <i class="fas fa-hashtag"></i>
+                <span>Explore</span>
+            </div>
+            <div class="nav-item" data-page="notifications">
+                <i class="far fa-bell"></i>
+                <span>Notifications</span>
+                <span class="notification-badge" id="notificationBadge" style="display: none;"></span>
+            </div>
+            <div class="nav-item" data-page="messages">
+                <i class="far fa-envelope"></i>
+                <span>Messages</span>
+                <span class="notification-badge" id="messageBadge" style="display: none;"></span>
+            </div>
+            <div class="nav-item" data-page="bookmarks">
+                <i class="far fa-bookmark"></i>
+                <span>Bookmarks</span>
+            </div>
+            <div class="nav-item" data-page="profile">
+                <i class="far fa-user"></i>
+                <span>Profile</span>
+            </div>
+            <div class="nav-item">
+                <i class="fas fa-ellipsis-h"></i>
+                <span>More</span>
+            </div>
+            <button class="tweet-btn" id="composeBtn">
+                <span>Chirp</span>
+            </button>
+            <div class="theme-toggle" id="themeToggle">
+                <i class="fas fa-moon"></i>
+                <span>Dark Mode</span>
+            </div>
+            <div class="user-profile" data-page="profile">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-info">
+                    <div class="user-name" id="userName">User</div>
+                    <div class="user-handle" id="userHandle">@username</div>
+                </div>
+                <i class="fas fa-ellipsis-h"></i>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <h1 id="pageTitle">Home</h1>
+                <button class="logout-btn" id="logoutBtn">Logout</button>
+            </div>
+            
+            <!-- Home Page -->
+            <div class="page" id="homePage">
+                <div class="tweet-form">
+                    <div class="tweet-input">
+                        <div class="tweet-avatar" id="currentUserAvatar">U</div>
+                        <textarea class="tweet-textarea" placeholder="What's happening?" id="tweetContent"></textarea>
+                    </div>
+                    <div class="tweet-actions">
+                        <div class="tweet-icons">
+                            <label for="tweetImageUpload" class="image-upload-label">
+                                <i class="far fa-image"></i>
+                                <input type="file" id="tweetImageUpload" accept="image/*" style="display: none;">
+                            </label>
+                            <i class="fas fa-poll"></i>
+                            <i class="far fa-smile"></i>
+                            <i class="far fa-calendar-alt"></i>
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div class="image-preview" id="imagePreview" style="display: none;">
+                            <img id="previewImage" src="" alt="Preview">
+                            <button class="remove-image-btn" id="removeImageBtn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <button class="tweet-btn" id="postTweet">Chirp</button>
+                    </div>
+                </div>
+                <div class="tweets-container" id="tweetsContainer">
+                    <!-- Tweets will be dynamically added here -->
+                </div>
+            </div>
+            
+            <!-- Explore Page -->
+            <div class="page" id="explorePage" style="display:none;">
+                <div class="trends-container">
+                    <h2>Trends for you</h2>
+                    <div class="trend-item">
+                        <div class="trend-category">Technology · Trending</div>
+                        <div class="trend-name">#AIRevolution</div>
+                        <div class="trend-count">25.4K Chirps</div>
+                    </div>
+                    <!-- More trends will be dynamically added -->
+                </div>
+            </div>
+            
+            <!-- Notifications Page -->
+            <div class="page" id="notificationsPage" style="display:none;">
+                <div class="notifications-container" id="notificationsContainer">
+                    <!-- Notifications will be dynamically added here -->
+                </div>
+            </div>
+            
+            <!-- Messages Page -->
+            <div class="page" id="messagesPage" style="display:none;">
+                <div class="messages-header">
+                    <h2>Messages</h2>
+                    <button class="new-message-btn" id="newMessageBtn">
+                        <i class="fas fa-envelope"></i>
+                    </button>
+                </div>
+                <div class="conversations-list" id="conversationsList">
+                    <!-- Conversations will be dynamically added here -->
+                </div>
+                
+                <!-- New Message Modal -->
+                <div class="modal" id="newMessageModal" style="display:none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>New Message</h3>
+                            <button class="close-modal" id="closeMessageModal">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="text" id="messageRecipient" placeholder="Search people">
+                            <div class="user-results" id="messageUserResults"></div>
+                            <textarea id="messageContent" placeholder="Write your message"></textarea>
+                            <button class="send-message-btn" id="sendMessageBtn">Send</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Conversation View -->
+                <div class="conversation-view" id="conversationView" style="display:none;">
+                    <div class="conversation-header">
+                        <button class="back-to-conversations" id="backToConversations">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="conversation-user-info">
+                            <div class="conversation-user-name" id="conversationUserName">User Name</div>
+                            <div class="conversation-user-handle" id="conversationUserHandle">@username</div>
+                        </div>
+                    </div>
+                    <div class="messages-container" id="messagesContainer">
+                        <!-- Messages will be dynamically added here -->
+                    </div>
+                    <div class="message-input-container">
+                        <input type="text" id="newMessageInput" placeholder="Type a message">
+                        <button id="sendNewMessageBtn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bookmarks Page -->
+            <div class="page" id="bookmarksPage" style="display:none;">
+                <div class="bookmarks-container" id="bookmarksContainer">
+                    <h2>Your Bookmarks</h2>
+                    <!-- Bookmarked tweets will be dynamically added here -->
+                </div>
+            </div>
+            
+            <!-- Profile Page -->
+            <div class="page" id="profilePage" style="display:none;">
+                <div class="profile-header">
+                    <div class="profile-cover" id="profileCover">
+                        <button class="edit-cover-btn" id="editCoverBtn">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <input type="file" id="coverUpload" accept="image/*" style="display: none;">
+                    </div>
+                    <div class="profile-avatar-container">
+                        <div class="profile-avatar" id="profileAvatar">U</div>
+                        <button class="edit-avatar-btn" id="editAvatarBtn">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+                    </div>
+                    <div class="profile-actions">
+                        <button class="edit-profile-btn" id="editProfileBtn">Edit profile</button>
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-name" id="profileName">User Name</div>
+                        <div class="profile-handle" id="profileHandle">@username</div>
+                        <div class="profile-bio" id="profileBio">This is a sample bio. User hasn't added a bio yet.</div>
+                        <div class="profile-stats">
+                            <div class="profile-stat">
+                                <span class="profile-stat-value" id="followingCount">0</span>
+                                <span class="profile-stat-label">Following</span>
+                            </div>
+                            <div class="profile-stat">
+                                <span class="profile-stat-value" id="followersCount">0</span>
+                                <span class="profile-stat-label">Followers</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Edit Profile Modal -->
+                <div class="modal" id="editProfileModal" style="display:none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Edit Profile</h3>
+                            <button class="close-modal" id="closeEditProfileModal">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="editName">Name</label>
+                                <input type="text" id="editName" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="editBio">Bio</label>
+                                <textarea id="editBio" class="form-control" rows="3"></textarea>
+                            </div>
+                            <button class="save-profile-btn" id="saveProfileBtn">Save changes</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="profile-tabs">
+                    <div class="profile-tab active" data-tab="tweets">Tweets</div>
+                    <div class="profile-tab" data-tab="replies">Tweets & Replies</div>
+                    <div class="profile-tab" data-tab="media">Media</div>
+                    <div class="profile-tab" data-tab="likes">Likes</div>
+                </div>
+                <div class="tweets-container" id="profileTweetsContainer">
+                    <!-- Profile tweets will be dynamically added here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="right-sidebar">
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search Chirper" id="searchInput">
+                <div class="search-results" id="searchResults"></div>
+            </div>
+            <div class="trends-card">
+                <h2>Trends for you</h2>
+                <div class="trend-item">
+                    <div class="trend-category">Technology · Trending</div>
+                    <div class="trend-name">#AIRevolution</div>
+                    <div class="trend-count">25.4K Chirps</div>
+                </div>
+                <!-- More trends will be dynamically added -->
+            </div>
+            <div class="who-to-follow">
+                <h2>Who to follow</h2>
+                <!-- Follow suggestions will be dynamically added -->
+            </div>
+        </div>
+        
+        <!-- Mobile Navigation -->
+        <div class="mobile-nav">
+            <div class="mobile-nav-items">
+                <div class="mobile-nav-item active" data-page="home">
+                    <i class="fas fa-home"></i>
+                    <span>Home</span>
+                </div>
+                <div class="mobile-nav-item" data-page="explore">
+                    <i class="fas fa-hashtag"></i>
+                    <span>Explore</span>
+                </div>
+                <div class="mobile-nav-item" data-page="notifications">
+                    <i class="far fa-bell"></i>
+                    <span>Alerts</span>
+                    <span class="mobile-notification-badge" id="mobileNotificationBadge" style="display: none;"></span>
+                </div>
+                <div class="mobile-nav-item" data-page="messages">
+                    <i class="far fa-envelope"></i>
+                    <span>Messages</span>
+                    <span class="mobile-notification-badge" id="mobileMessageBadge" style="display: none;"></span>
+                </div>
+                <div class="mobile-nav-item" data-page="profile">
+                    <i class="far fa-user"></i>
+                    <span>Profile</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Tweet Button -->
+        <div class="mobile-tweet-btn" id="mobileComposeBtn">
+            <i class="fas fa-feather-alt"></i>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        Notification message
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="loading-spinner" id="loadingSpinner" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
