@@ -1,5 +1,5 @@
 // Configuration
-const SERVER_URL = 'http://localhost:5000'; // Change to your server URL if different
+const SERVER_URL = 'https://finally-continued-winners-behavioral.trycloudflare.com'; // Change to your server URL if different
 
 // Connect to Socket.IO server
 const socket = io(SERVER_URL);
