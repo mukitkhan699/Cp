@@ -1,5 +1,5 @@
 // Configuration
-const SERVER_URL = 'http://172.16.10.69:5000'; // Added http:// prefix
+const SERVER_URL = 'https://finally-continued-winners-behavioral.trycloudflare.com'; // Added http:// prefix
 
 // Connect to Socket.IO server
 const socket = io(SERVER_URL, {
