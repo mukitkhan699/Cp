@@ -574,21 +574,63 @@ function removeImagePreview() {
     tweetImageUpload.value = '';
 }
 
-// Render tweets to the page
+// Render tweets to the page with improved error handling
 function renderTweets(tweetsToRender = allTweets) {
-    tweetsContainer.innerHTML = '';
-    
-    if (tweetsToRender.length === 0) {
-        tweetsContainer.innerHTML = '<div class="tweet"><div class="tweet-content" style="text-align: center; padding: 20px;">No tweets found. Start following users to see tweets!</div></div>';
-        return;
-    }
-    
-    tweetsToRender.forEach(tweet => {
-        const tweetElement = createTweetElement(tweet);
-        tweetsContainer.appendChild(tweetElement);
-    });
-}
+    try {
+        // Clear the container first
+        tweetsContainer.innerHTML = '';
+        
+        // Validate input
+        if (!Array.isArray(tweetsToRender)) {
+            console.error('Expected array but received:', tweetsToRender);
+            tweetsToRender = []; // Fallback to empty array
+        }
 
+        // Handle empty state
+        if (tweetsToRender.length === 0) {
+            const emptyMessage = document.createElement('div');
+            emptyMessage.className = 'tweet';
+            emptyMessage.innerHTML = `
+                <div class="tweet-content" style="text-align: center; padding: 20px;">
+                    ${currentUser ? 'No tweets found. Start following users to see tweets!' : 'Please login to view tweets'}
+                </div>
+            `;
+            tweetsContainer.appendChild(emptyMessage);
+            return;
+        }
+
+        // Render each tweet with error handling
+        tweetsToRender.forEach(tweet => {
+            try {
+                if (!tweet || typeof tweet !== 'object') {
+                    console.error('Invalid tweet format:', tweet);
+                    return; // Skip invalid tweets
+                }
+                
+                const tweetElement = createTweetElement(tweet);
+                if (tweetElement) {
+                    tweetsContainer.appendChild(tweetElement);
+                }
+            } catch (tweetError) {
+                console.error('Error rendering tweet:', tweetError, 'Tweet data:', tweet);
+                // Optionally render an error placeholder for failed tweets
+                const errorElement = document.createElement('div');
+                errorElement.className = 'tweet-error';
+                errorElement.textContent = 'Could not display this tweet';
+                tweetsContainer.appendChild(errorElement);
+            }
+        });
+
+    } catch (mainError) {
+        console.error('Critical error in renderTweets:', mainError);
+        // Fallback UI for complete failure
+        tweetsContainer.innerHTML = `
+            <div class="tweet-error" style="text-align: center; padding: 20px; color: red;">
+                Error loading tweets. Please refresh the page.
+            </div>
+        `;
+    }
+}
 // Render profile tweets
 function renderProfileTweets(tweets) {
     profileTweetsContainer.innerHTML = '';
