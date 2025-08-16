@@ -1,5 +1,5 @@
 // Configuration
-const SERVER_URL = 'https://principal-emacs-apartment-moore.trycloudflare.com';
+const SERVER_URL = 'https://ruth-leeds-replied-initially.trycloudflare.com';
 
 // Connect to Socket.IO server
 const socket = io(SERVER_URL, {
