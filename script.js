@@ -246,15 +246,31 @@ async function loadInitialData() {
 // 4. Fixed the message handling logic in the new-message event
 // Load tweets from server
 async function loadTweets() {
-    try {
-        const response = await fetch(`${SERVER_URL}/api/tweets`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        allTweets = await response.json();
-        renderTweets();
-    } catch (error) {
-        console.error('Error loading tweets:', error);
-        throw error;
+  showLoading(true);
+  try {
+    const response = await fetch(`${SERVER_URL}/api/tweets`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(currentUser && { 'Authorization': `Bearer ${currentUser.token}` })
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to load tweets');
     }
+
+    allTweets = await response.json();
+    renderTweets();
+  } catch (error) {
+    console.error('Tweet loading error:', error);
+    showNotification(error.message || 'Failed to load tweets', 'error');
+    // Fallback to empty tweets if API fails
+    allTweets = [];
+    renderTweets();
+  } finally {
+    showLoading(false);
+  }
 }
 
 // Load notifications from server
