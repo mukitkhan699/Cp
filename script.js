@@ -217,22 +217,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Load initial data
 async function loadInitialData() {
-    showLoading(true);
-    try {
-        await Promise.all([
-            loadTweets(),
-            loadNotifications(),
-            loadMessages(),
-            loadBookmarks(),
-            loadFollowing(),
-            loadUserProfile()
-        ]);
-    } catch (error) {
-        console.error('Error loading initial data:', error);
-        showNotification('Failed to load data. Please refresh the page.', 'error');
-    } finally {
-        showLoading(false);
-    }
+  showLoading(true);
+  try {
+    await Promise.all([
+      loadTweets().catch(e => console.error('Tweet load error:', e)),
+      loadNotifications().catch(e => console.error('Notification error:', e)),
+      loadMessages().catch(e => console.error('Messages error:', e)),
+      loadBookmarks().catch(e => console.error('Bookmarks error:', e)),
+      loadFollowing().catch(e => console.error('Following error:', e)),
+      loadUserProfile().catch(e => console.error('Profile error:', e))
+    ]);
+  } finally {
+    showLoading(false);
+  }
 }
 
 // [Rest of the functions remain the same as in your original script.js]
