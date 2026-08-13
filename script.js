@@ -1,11 +1,18 @@
 // Configuration
-const SERVER_URL = 'https://ruth-leeds-replied-initially.trycloudflare.com';
+const SERVER_URL = 'http://localhost:3000';
+
+// Test server connection on load
+console.log('🔌 Attempting to connect to:', SERVER_URL);
 
 // Connect to Socket.IO server
 const socket = io(SERVER_URL, {
-    transports: ['websocket'],
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000
+    transports: ['websocket', 'polling'],
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
+    forceNew: true,
+    withCredentials: true
 });
 
 // Current user state
@@ -88,8 +95,35 @@ const previewImage = document.getElementById('previewImage');
 const removeImageBtn = document.getElementById('removeImageBtn');
 const loadingSpinner = document.getElementById('loadingSpinner');
 
+// Check server connection
+async function checkServerConnection() {
+    try {
+        console.log('🔍 Checking server connection...');
+        const response = await fetch(`${SERVER_URL}/health`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Server is healthy:', data);
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('❌ Server connection failed:', error.message);
+        showNotification('⚠️ Cannot connect to server. Make sure backend is running on port 3000', 'error');
+        return false;
+    }
+}
+
 // Initialize the app
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // Check server connection first
+    await checkServerConnection();
+    
     // Check if user is logged in
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
@@ -144,18 +178,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Socket.IO listeners
     socket.on('connect', () => {
-        console.log('Connected to Socket.IO server with ID:', socket.id);
+        console.log('✅ Connected to Socket.IO server with ID:', socket.id);
         if (currentUser?.token) {
             socket.emit('authenticate', { token: currentUser.token });
         }
+        showNotification('Connected to server!', 'success');
     });
 
     socket.on('connect_error', (err) => {
-        console.log('Connection error:', err);
+        console.error('❌ Socket connection error:', err.message);
+        showNotification('Could not connect to server. Make sure backend is running.', 'error');
     });
 
     socket.on('disconnect', (reason) => {
-        console.log('Disconnected:', reason);
+        console.log('🔌 Disconnected:', reason);
+        if (reason === 'io server disconnect') {
+            socket.connect();
+        }
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+        console.log('🔄 Reconnected after', attemptNumber, 'attempts');
+        showNotification('Reconnected to server!', 'success');
     });
 
     socket.on('new-tweet', (tweet) => {
@@ -222,12 +266,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     socket.on('authenticated', () => {
-        console.log('Socket.IO authenticated successfully');
+        console.log('✅ Socket.IO authenticated successfully');
     });
 
     socket.on('auth-error', (error) => {
-        console.error('Socket.IO authentication failed:', error);
-        if (error.message.includes('token')) {
+        console.error('❌ Socket.IO authentication failed:', error);
+        if (error.message && error.message.includes('token')) {
             showNotification('Session expired. Please login again.', 'error');
             logout();
         }
@@ -258,25 +302,41 @@ async function makeAuthenticatedRequest(url, options = {}) {
         credentials: 'include',
         headers: {
             'Authorization': `Bearer ${currentUser.token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
             ...(options.headers || {})
         }
     };
 
+    // Don't set Content-Type for FormData (multipart)
+    if (options.body instanceof FormData) {
+        delete defaultOptions.headers['Content-Type'];
+    }
+
     const mergedOptions = { ...defaultOptions, ...options };
     
     try {
+        console.log(`🌐 Making request to: ${url}`);
         const response = await fetch(url, mergedOptions);
         
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Request failed');
+            let errorMessage = 'Request failed';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorMessage;
+            } catch (e) {
+                errorMessage = response.statusText || errorMessage;
+            }
+            throw new Error(errorMessage);
         }
         
         return response.json();
     } catch (error) {
-        console.error('Request error:', error);
+        console.error('❌ Request error:', error);
         
-        if (error.message.includes('jwt') || error.message.includes('token')) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            showNotification('Cannot connect to server. Please check if the server is running.', 'error');
+        } else if (error.message.includes('jwt') || error.message.includes('token')) {
             showNotification('Session expired. Please login again.', 'error');
             logout();
         }
@@ -377,6 +437,7 @@ async function loadFollowing() {
 }
 
 // Load user profile
+// Load user profile - Updated
 async function loadUserProfile() {
     if (!currentUser) return;
     
@@ -384,21 +445,22 @@ async function loadUserProfile() {
         const userData = await makeAuthenticatedRequest(`${SERVER_URL}/api/users/${currentUser._id}`);
         
         // Update profile info
-        profileName.textContent = userData.name;
-        profileHandle.textContent = `@${userData.username}`;
-        profileBio.textContent = userData.bio || "This user hasn't added a bio yet.";
-        followingCount.textContent = userData.following.length;
-        followersCount.textContent = userData.followers || 0;
+        if (profileName) profileName.textContent = userData.name;
+        if (profileHandle) profileHandle.textContent = `@${userData.username}`;
+        if (profileBio) profileBio.textContent = userData.bio || "This user hasn't added a bio yet.";
+        if (followingCount) followingCount.textContent = userData.following || 0;
+        if (followersCount) followersCount.textContent = userData.followers || 0;
         
         // Update avatar
         if (userData.avatar) {
-            profileAvatar.textContent = userData.avatar;
-            userAvatar.textContent = userData.avatar;
-            currentUserAvatar.textContent = userData.avatar;
+            const avatarUrl = `${SERVER_URL}${userData.avatar}`;
+            if (profileAvatar) profileAvatar.src = avatarUrl;
+            if (userAvatar) userAvatar.src = avatarUrl;
+            if (currentUserAvatar) currentUserAvatar.src = avatarUrl;
         }
         
         // Update cover photo if exists
-        if (userData.coverPhoto) {
+        if (userData.coverPhoto && profileCover) {
             profileCover.style.backgroundImage = `url(${SERVER_URL}${userData.coverPhoto})`;
             profileCover.style.backgroundSize = 'cover';
             profileCover.style.backgroundPosition = 'center';
@@ -418,6 +480,7 @@ async function loadUserProfile() {
 }
 
 // Login function
+// Login function - Updated
 async function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
@@ -433,7 +496,8 @@ async function login() {
             method: 'POST',
             credentials: 'include',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({ username, password })
         });
@@ -444,7 +508,14 @@ async function login() {
         }
         
         const data = await response.json();
-        currentUser = data.user;
+        
+        // Ensure user object has _id
+        const user = data.user;
+        if (!user._id && user.id) {
+            user._id = user.id;
+        }
+        
+        currentUser = user;
         currentUser.token = data.token;
         
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -463,7 +534,7 @@ async function login() {
     }
 }
 
-// Signup function
+// Signup function - Updated
 async function signup() {
     const name = document.getElementById('signupName').value.trim();
     const username = document.getElementById('signupUsername').value.trim();
@@ -481,7 +552,8 @@ async function signup() {
             method: 'POST',
             credentials: 'include',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({ username, password, name, bio })
         });
@@ -492,7 +564,14 @@ async function signup() {
         }
         
         const data = await response.json();
-        currentUser = data.user;
+        
+        // Ensure user object has _id
+        const user = data.user;
+        if (!user._id && user.id) {
+            user._id = user.id;
+        }
+        
+        currentUser = user;
         currentUser.token = data.token;
         
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -539,8 +618,12 @@ async function postTweet() {
         });
         
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to post tweet');
+            let errorMessage = 'Failed to post tweet';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorMessage;
+            } catch (e) {}
+            throw new Error(errorMessage);
         }
         
         const newTweet = await response.json();
@@ -564,10 +647,6 @@ async function postTweet() {
         showLoading(false);
     }
 }
-
-// [Rest of your existing functions remain the same...]
-// (All other functions like renderTweets, createTweetElement, etc. can stay as they were)
-// [Previous code remains the same until the postTweet function...]
 
 // Handle image upload for tweets
 function handleImageUpload() {
@@ -674,10 +753,16 @@ function createTweetElement(tweet) {
         return likeId === currentUser._id;
     });
     
-    const isBookmarked = bookmarks.some(b => b.tweet._id === tweet._id);
+    const isBookmarked = bookmarks.some(b => b.tweet && b.tweet._id === tweet._id);
     
     tweetEl.innerHTML = `
-        <div class="tweet-avatar">${tweet.avatar || 'U'}</div>
+        <div class="tweet-avatar">
+        ${
+            tweet.avatar
+            ? `<img src="${tweet.avatar.startsWith('http') ? tweet.avatar : SERVER_URL + tweet.avatar}" alt="Avatar">`
+            : 'U'
+        }
+        </div>
         <div class="tweet-content">
             <div class="tweet-header">
                 <div class="tweet-author">${tweet.author}</div>
@@ -720,23 +805,31 @@ function createTweetElement(tweet) {
     
     // Add event listeners
     const likeButton = tweetEl.querySelector('.tweet-stat.like');
-    likeButton.addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleLike(tweet._id);
-    });
+    if (likeButton) {
+        likeButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleLike(tweet._id);
+        });
+    }
     
     const bookmarkButton = tweetEl.querySelector('.tweet-stat.bookmark');
-    bookmarkButton.addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleBookmark(tweet._id);
-    });
+    if (bookmarkButton) {
+        bookmarkButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleBookmark(tweet._id);
+        });
+    }
     
     const commentButton = tweetEl.querySelector('.tweet-stat.comment');
-    commentButton.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const commentForm = tweetEl.querySelector('.comment-form');
-        commentForm.style.display = commentForm.style.display === 'none' ? 'flex' : 'none';
-    });
+    if (commentButton) {
+        commentButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const commentForm = tweetEl.querySelector('.comment-form');
+            if (commentForm) {
+                commentForm.style.display = commentForm.style.display === 'none' ? 'flex' : 'none';
+            }
+        });
+    }
     
     const commentBtn = tweetEl.querySelector('.comment-btn');
     const commentInput = tweetEl.querySelector('.comment-input');
@@ -757,17 +850,21 @@ function createTweetElement(tweet) {
     return tweetEl;
 }
 
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+});
+
 // Render comments
 function renderComments(comments) {
     if (!comments || comments.length === 0) return '';
     
     return comments.map(comment => `
         <div class="comment">
-            <div class="comment-avatar">${comment.user.avatar || 'U'}</div>
+            <div class="comment-avatar">${comment.user ? (comment.user.avatar || 'U') : 'U'}</div>
             <div class="comment-content">
                 <div class="comment-header">
-                    <div class="comment-author">${comment.user.name}</div>
-                    <div class="comment-handle">@${comment.user.username}</div>
+                    <div class="comment-author">${comment.user ? comment.user.name : 'Unknown'}</div>
+                    <div class="comment-handle">${comment.user ? '@' + comment.user.username : ''}</div>
                     <div class="comment-time">· ${formatTime(comment.createdAt)}</div>
                 </div>
                 <div class="comment-text">${comment.content}</div>
@@ -778,6 +875,7 @@ function renderComments(comments) {
 
 // Format time
 function formatTime(dateString) {
+    if (!dateString) return 'just now';
     const now = new Date();
     const tweetDate = new Date(dateString);
     const diffInSeconds = Math.floor((now - tweetDate) / 1000);
@@ -823,7 +921,7 @@ async function toggleBookmark(tweetId) {
             bookmarks.unshift({ tweet: result.tweet });
             showNotification('Tweet added to bookmarks');
         } else {
-            const index = bookmarks.findIndex(b => b.tweet._id === tweetId);
+            const index = bookmarks.findIndex(b => b.tweet && b.tweet._id === tweetId);
             if (index !== -1) bookmarks.splice(index, 1);
             showNotification('Tweet removed from bookmarks');
         }
@@ -838,7 +936,7 @@ async function toggleBookmark(tweetId) {
 
 // Post a comment
 async function postComment(tweetId, content) {
-    if (!content.trim()) {
+    if (!content || !content.trim()) {
         showNotification('Comment cannot be empty', 'error');
         return;
     }
@@ -927,7 +1025,7 @@ function updateNotificationBadge() {
 function updateMessageBadge() {
     const unreadCount = messages.reduce((count, conversation) => {
         return count + (conversation.messages?.filter(m => 
-            m.sender._id !== currentUser._id && !m.read
+            m.sender && m.sender._id !== currentUser._id && !m.read
         ).length || 0);
     }, 0);
     
@@ -981,30 +1079,36 @@ function navigateToPage(page) {
     if (page === 'home') {
         homePage.style.display = 'block';
         pageTitle.textContent = 'Home';
-        document.querySelector('[data-page="home"]').classList.add('active');
+        const homeNav = document.querySelector('[data-page="home"]');
+        if (homeNav) homeNav.classList.add('active');
     } else if (page === 'explore') {
         explorePage.style.display = 'block';
         pageTitle.textContent = 'Explore';
-        document.querySelector('[data-page="explore"]').classList.add('active');
+        const exploreNav = document.querySelector('[data-page="explore"]');
+        if (exploreNav) exploreNav.classList.add('active');
     } else if (page === 'notifications') {
         notificationsPage.style.display = 'block';
         pageTitle.textContent = 'Notifications';
-        document.querySelector('[data-page="notifications"]').classList.add('active');
+        const notifNav = document.querySelector('[data-page="notifications"]');
+        if (notifNav) notifNav.classList.add('active');
         renderNotifications();
     } else if (page === 'messages') {
         messagesPage.style.display = 'block';
         pageTitle.textContent = 'Messages';
-        document.querySelector('[data-page="messages"]').classList.add('active');
+        const msgNav = document.querySelector('[data-page="messages"]');
+        if (msgNav) msgNav.classList.add('active');
         renderConversations();
     } else if (page === 'bookmarks') {
         bookmarksPage.style.display = 'block';
         pageTitle.textContent = 'Bookmarks';
-        document.querySelector('[data-page="bookmarks"]').classList.add('active');
+        const bookNav = document.querySelector('[data-page="bookmarks"]');
+        if (bookNav) bookNav.classList.add('active');
         renderBookmarks();
     } else if (page === 'profile') {
         profilePage.style.display = 'block';
         pageTitle.textContent = 'Profile';
-        document.querySelector('[data-page="profile"]').classList.add('active');
+        const profileNav = document.querySelector('[data-page="profile"]');
+        if (profileNav) profileNav.classList.add('active');
         loadUserProfile();
     }
     
@@ -1016,10 +1120,10 @@ function showLoading(show) {
     loadingSpinner.style.display = show ? 'flex' : 'none';
 }
 
-// [Rest of your existing functions...]
 // Render notifications
 function renderNotifications() {
     const container = document.getElementById('notificationsContainer');
+    if (!container) return;
     container.innerHTML = '';
     
     if (notifications.length === 0) {
@@ -1032,7 +1136,7 @@ function renderNotifications() {
         notifElement.className = 'tweet';
         
         notifElement.innerHTML = `
-            <div class="tweet-avatar">${notification.sender ? notification.sender.avatar : 'N'}</div>
+            <div class="tweet-avatar">${notification.sender ? (notification.sender.avatar || 'N') : 'N'}</div>
             <div class="tweet-content">
                 <div class="tweet-text">${notification.message}</div>
                 <div class="tweet-time">${formatTime(notification.createdAt)}</div>
@@ -1045,6 +1149,7 @@ function renderNotifications() {
 
 // Render conversations list
 function renderConversations() {
+    if (!conversationsList) return;
     conversationsList.innerHTML = '';
     
     if (messages.length === 0) {
@@ -1053,24 +1158,24 @@ function renderConversations() {
     }
     
     messages.forEach(conversation => {
-        const lastMessage = conversation.messages ? 
+        const lastMessage = conversation.messages && conversation.messages.length > 0 ? 
             conversation.messages[conversation.messages.length - 1] : 
             { content: 'No messages yet', createdAt: new Date() };
         
-        const otherUser = conversation.participants.find(p => p._id !== currentUser._id);
+        const otherUser = conversation.participants ? conversation.participants.find(p => p._id !== currentUser._id) : null;
         
         const convoElement = document.createElement('div');
         convoElement.className = 'tweet';
         convoElement.addEventListener('click', () => showConversation(conversation));
         
         convoElement.innerHTML = `
-            <div class="tweet-avatar">${otherUser ? otherUser.avatar : 'U'}</div>
+            <div class="tweet-avatar">${otherUser ? (otherUser.avatar || 'U') : 'U'}</div>
             <div class="tweet-content">
                 <div class="tweet-header">
                     <div class="tweet-author">${otherUser ? otherUser.name : 'Unknown User'}</div>
                     <div class="tweet-time">${formatTime(lastMessage.createdAt)}</div>
                 </div>
-                <div class="tweet-text">${lastMessage.content.substring(0, 50)}${lastMessage.content.length > 50 ? '...' : ''}</div>
+                <div class="tweet-text">${lastMessage.content ? lastMessage.content.substring(0, 50) : ''}${lastMessage.content && lastMessage.content.length > 50 ? '...' : ''}</div>
             </div>
         `;
         
@@ -1079,25 +1184,26 @@ function renderConversations() {
 }
 
 // Render messages in a conversation
-function renderMessages(messages) {
+function renderMessages(messagesList) {
+    if (!messagesContainer) return;
     messagesContainer.innerHTML = '';
     
-    if (!messages || messages.length === 0) {
+    if (!messagesList || messagesList.length === 0) {
         messagesContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--light-text);">No messages yet. Start the conversation!</div>';
         return;
     }
     
-    messages.forEach(message => {
-        const isCurrentUser = message.sender._id === currentUser._id;
+    messagesList.forEach(message => {
+        const isCurrentUser = message.sender && message.sender._id === currentUser._id;
         
         const messageElement = document.createElement('div');
         messageElement.className = `message ${isCurrentUser ? 'sent' : 'received'}`;
         
         messageElement.innerHTML = `
-            ${!isCurrentUser ? `<div class="message-avatar">${message.sender.avatar}</div>` : ''}
+            ${!isCurrentUser && message.sender ? `<div class="message-avatar">${message.sender.avatar || 'U'}</div>` : ''}
             <div class="message-content">
-                ${!isCurrentUser ? `<div class="message-sender">${message.sender.name}</div>` : ''}
-                <div class="message-text">${message.content}</div>
+                ${!isCurrentUser && message.sender ? `<div class="message-sender">${message.sender.name || 'Unknown'}</div>` : ''}
+                <div class="message-text">${message.content || ''}</div>
                 <div class="message-time">${formatTime(message.createdAt)}</div>
             </div>
         `;
@@ -1112,6 +1218,7 @@ function renderMessages(messages) {
 // Render bookmarks
 function renderBookmarks() {
     const container = document.getElementById('bookmarksContainer');
+    if (!container) return;
     container.innerHTML = '';
     
     if (bookmarks.length === 0) {
@@ -1120,20 +1227,22 @@ function renderBookmarks() {
     }
     
     bookmarks.forEach(bookmark => {
-        const tweetElement = createTweetElement(bookmark.tweet);
-        container.appendChild(tweetElement);
+        if (bookmark.tweet) {
+            const tweetElement = createTweetElement(bookmark.tweet);
+            container.appendChild(tweetElement);
+        }
     });
 }
 
 // Show conversation view
 function showConversation(conversation) {
     currentConversation = conversation;
-    conversationView.style.display = 'block';
-    conversationsList.style.display = 'none';
+    if (conversationView) conversationView.style.display = 'block';
+    if (conversationsList) conversationsList.style.display = 'none';
     
-    const otherUser = conversation.participants.find(p => p._id !== currentUser._id);
-    conversationUserName.textContent = otherUser.name;
-    conversationUserHandle.textContent = `@${otherUser.username}`;
+    const otherUser = conversation.participants ? conversation.participants.find(p => p._id !== currentUser._id) : null;
+    if (conversationUserName) conversationUserName.textContent = otherUser ? otherUser.name : 'Unknown';
+    if (conversationUserHandle) conversationUserHandle.textContent = otherUser ? `@${otherUser.username}` : '';
     
     renderMessages(conversation.messages || []);
 }
@@ -1141,27 +1250,27 @@ function showConversation(conversation) {
 // Show conversations list
 function showConversationsList() {
     currentConversation = null;
-    conversationView.style.display = 'none';
-    conversationsList.style.display = 'block';
+    if (conversationView) conversationView.style.display = 'none';
+    if (conversationsList) conversationsList.style.display = 'block';
 }
 
 // Show new message modal
 function showNewMessageModal() {
-    newMessageModal.style.display = 'block';
-    messageRecipient.focus();
+    if (newMessageModal) newMessageModal.style.display = 'block';
+    if (messageRecipient) messageRecipient.focus();
 }
 
 // Hide new message modal
 function hideNewMessageModal() {
-    newMessageModal.style.display = 'none';
-    messageRecipient.value = '';
-    messageContent.value = '';
+    if (newMessageModal) newMessageModal.style.display = 'none';
+    if (messageRecipient) messageRecipient.value = '';
+    if (messageContent) messageContent.value = '';
 }
 
 // Send a new message
 async function sendNewMessage() {
-    const recipient = messageRecipient.value.trim();
-    const content = messageContent.value.trim();
+    const recipient = messageRecipient ? messageRecipient.value.trim() : '';
+    const content = messageContent ? messageContent.value.trim() : '';
     
     if (!recipient || !content) {
         showNotification('Please enter both recipient and message', 'error');
@@ -1190,7 +1299,7 @@ async function sendNewMessage() {
 
 // Send message in conversation
 async function sendMessage() {
-    const content = newMessageInput.value.trim();
+    const content = newMessageInput ? newMessageInput.value.trim() : '';
     
     if (!content) {
         showNotification('Message cannot be empty', 'error');
@@ -1200,7 +1309,13 @@ async function sendMessage() {
     if (!currentConversation) return;
     
     try {
-        const recipientId = currentConversation.participants.find(p => p._id !== currentUser._id)._id;
+        const otherUser = currentConversation.participants.find(p => p._id !== currentUser._id);
+        if (!otherUser) {
+            showNotification('Recipient not found', 'error');
+            return;
+        }
+        
+        const recipientId = otherUser._id;
         
         const newMessage = await makeAuthenticatedRequest(`${SERVER_URL}/api/messages`, {
             method: 'POST',
@@ -1214,10 +1329,14 @@ async function sendMessage() {
             })
         });
         
-        newMessageInput.value = '';
+        if (newMessageInput) newMessageInput.value = '';
         
         // Update conversation
-        currentConversation.messages.push(newMessage);
+        if (currentConversation.messages) {
+            currentConversation.messages.push(newMessage);
+        } else {
+            currentConversation.messages = [newMessage];
+        }
         renderMessages(currentConversation.messages);
     } catch (error) {
         console.error('Error sending message:', error);
@@ -1227,20 +1346,20 @@ async function sendMessage() {
 
 // Show edit profile modal
 function showEditProfileModal() {
-    editName.value = currentUser.name;
-    editBio.value = currentUser.bio || '';
-    editProfileModal.style.display = 'block';
+    if (editName) editName.value = currentUser.name || '';
+    if (editBio) editBio.value = currentUser.bio || '';
+    if (editProfileModal) editProfileModal.style.display = 'block';
 }
 
 // Hide edit profile modal
 function hideEditProfileModal() {
-    editProfileModal.style.display = 'none';
+    if (editProfileModal) editProfileModal.style.display = 'none';
 }
 
 // Save profile changes
 async function saveProfile() {
-    const name = editName.value.trim();
-    const bio = editBio.value.trim();
+    const name = editName ? editName.value.trim() : '';
+    const bio = editBio ? editBio.value.trim() : '';
     
     if (!name) {
         showNotification('Name cannot be empty', 'error');
@@ -1260,9 +1379,9 @@ async function saveProfile() {
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
         
         // Update UI
-        userName.textContent = updatedUser.name;
-        profileName.textContent = updatedUser.name;
-        profileBio.textContent = updatedUser.bio || "This user hasn't added a bio yet.";
+        if (userName) userName.textContent = updatedUser.name;
+        if (profileName) profileName.textContent = updatedUser.name;
+        if (profileBio) profileBio.textContent = updatedUser.bio || "This user hasn't added a bio yet.";
         
         hideEditProfileModal();
         showNotification('Profile updated successfully!');
@@ -1274,7 +1393,7 @@ async function saveProfile() {
 
 // Upload cover photo
 async function uploadCoverPhoto() {
-    const file = coverUpload.files[0];
+    const file = coverUpload ? coverUpload.files[0] : null;
     if (!file) return;
     
     if (!file.type.match('image.*')) {
@@ -1291,9 +1410,11 @@ async function uploadCoverPhoto() {
             body: formData
         });
         
-        profileCover.style.backgroundImage = `url(${SERVER_URL}${result.coverPhoto})`;
-        profileCover.style.backgroundSize = 'cover';
-        profileCover.style.backgroundPosition = 'center';
+        if (profileCover) {
+            profileCover.style.backgroundImage = `url(${SERVER_URL}${result.coverPhoto})`;
+            profileCover.style.backgroundSize = 'cover';
+            profileCover.style.backgroundPosition = 'center';
+        }
         
         showNotification('Cover photo updated!');
     } catch (error) {
@@ -1304,7 +1425,7 @@ async function uploadCoverPhoto() {
 
 // Upload avatar
 async function uploadAvatar() {
-    const file = avatarUpload.files[0];
+    const file = avatarUpload ? avatarUpload.files[0] : null;
     if (!file) return;
     
     if (!file.type.match('image.*')) {
@@ -1325,9 +1446,9 @@ async function uploadAvatar() {
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
         
         // Update all avatar instances
-        userAvatar.textContent = result.avatar;
-        currentUserAvatar.textContent = result.avatar;
-        profileAvatar.textContent = result.avatar;
+        if (userAvatar) userAvatar.textContent = result.avatar;
+        if (currentUserAvatar) currentUserAvatar.textContent = result.avatar;
+        if (profileAvatar) profileAvatar.textContent = result.avatar;
         
         showNotification('Profile picture updated!');
     } catch (error) {
@@ -1339,13 +1460,17 @@ async function uploadAvatar() {
 // Show signup form
 function showSignupForm(e) {
     e.preventDefault();
-    document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('signupForm').style.display = 'block';
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    if (loginForm) loginForm.style.display = 'none';
+    if (signupForm) signupForm.style.display = 'block';
 }
 
 // Show login form
 function showLoginForm(e) {
     e.preventDefault();
-    document.getElementById('signupForm').style.display = 'none';
-    document.getElementById('loginForm').style.display = 'block';
+    const signupForm = document.getElementById('signupForm');
+    const loginForm = document.getElementById('loginForm');
+    if (signupForm) signupForm.style.display = 'none';
+    if (loginForm) loginForm.style.display = 'block';
 }

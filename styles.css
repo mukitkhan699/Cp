@@ -12,7 +12,7 @@
   --retweet: #17bf63;
   --comment: #1da1f2;
   --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  --dark-bg: #15202b;
+  --dark-bg: #000;
   --dark-card: #192734;
   --dark-text: #f7f9f9;
   --dark-border: #38444d;
@@ -26,6 +26,12 @@
   padding: 0;
   box-sizing: border-box;
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+*, *::before, *::after {
+  animation: none !important;
+  transition: none !important;
 }
 
 body {
@@ -436,6 +442,7 @@ body.dark-mode {
   width: 50px;
   height: 50px;
   border-radius: 50%;
+  overflow: hidden;
   background-color: var(--primary);
   margin-right: 15px;
   display: flex;
@@ -444,6 +451,12 @@ body.dark-mode {
   color: white;
   font-weight: bold;
   flex-shrink: 0;
+}
+
+.tweet-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .tweet-textarea {
